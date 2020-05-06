@@ -198,7 +198,6 @@ const getAnnotation = (paths, item) => {
                     { start: 0, end: 100, encoding: "utf-8"});
      stream.on('data',function(data){
       let txt = data.match(/^\/\/(.*)/ig) || data.match(/(?<=\/\*)[\s\S]*(?=\*\/)/ig);
-      console.log(txt, '逐行读取');
 
       if (txt) {
         resolve(txt[0].replace(/[\/\r\n ]/g, ""))
