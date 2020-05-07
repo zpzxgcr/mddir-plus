@@ -1,6 +1,6 @@
 {
   "name": "mddirs",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "mddir quick generate path",
   "main": "mddir.js",
   "scripts": {

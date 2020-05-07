@@ -5,7 +5,7 @@
 mddir加强版
 #### To install:
 ```shell
-> npm install mddir -g
+> npm install mddirs -g
 ```
 #### Useage
 >**在每个文件的首行添加注释 便是该文件的注释
