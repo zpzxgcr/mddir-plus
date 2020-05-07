@@ -3,6 +3,8 @@
 const fs = require('fs')
 const path = require('path')
 const ora = require('ora');
+const readline = require('readline');
+const _ = require('lodash');
 let folders = {}
 let outputText = ''
 let markdownText = ''
@@ -64,11 +66,12 @@ const getFolders = function (paths) {
 }
 
 const getFiles = function (paths, key) {
+
   fs.readdir(paths, function (err, list) {
     list.forEach(function (item) {
       if (!fs.lstatSync(paths + '/' + item).isDirectory()) {
         if (folders[key].files.length === 0 || folders[key].files.indexOf(item) === -1 && !folderIgnoreList.some( x => x === path.extname(item))) {
-          folders[key].files.push(item)
+          folders[key].files.push(item);
         }
       } else {
         if (folders[key].folders.indexOf(item) === -1) {
@@ -85,6 +88,7 @@ const getFiles = function (paths, key) {
 const getFilesInFolders = function () {
   for (const key in folders) {
     if (folders.hasOwnProperty(key)) {
+
       getFiles(folders[key].path, key)
     }
   }
@@ -140,7 +144,6 @@ const generateText = function () {
   }
   fs.writeFile(outputFileName, outputText, function (err) {
     if (err) throw err
-  // console.log(outputFileName +  '>' + outputText)
   })
 }
 
@@ -149,66 +152,84 @@ const addFileName = function (name, indent, txt) {
   markdownText += `${''.padEnd(indent, ' ')}|--  ${name}  ${txt}\n`
 }
 const done = () =>{
-  addSiblingfolderConnections();
-  fs.writeFile(currentWorkingDirectory + '/' + outputFileName, markdownText, function (err) {
-    if (err) throw err;
-    spinner.succeed('generate success √');
-    spinner.stop();
-    console.timeEnd('spend time')
-  // console.log(outputFileName +  '>' + outputText)
-  })
+  const isDone = _.every(folders, (item)=> item.marked);
+  if(isDone){
+    addSiblingfolderConnections();
+    fs.writeFile(currentWorkingDirectory + '/' + outputFileName, markdownText, function (err) {
+      if (err) throw err;
+      spinner.succeed('mddirs success √');
+      spinner.stop();
+      console.timeEnd('spend time')
+    })
+  }
 }
-const addFolderName = async (name, index, fn) => {
+const addFolderName = async (name, index) => {
     try {
 
-    if (folders[name] !== undefined) {
-      if (folders[name].marked) {
-        return
-      }
-      const indent = (folders[name].depth - startDepth) * 4;
-      markdownText += ''.padEnd(indent, ' ');
-      if (index === 1) {
-        markdownText += '|-- ' + startFolder + '\n'
-      } else {
-        markdownText += '|-- ' + folders[name].name + ' \n'
-      }
-      for(let i =0; i++; i < folders[name].files) {
-        const f = folders[name].files[i];
-        const txt = await getAnnotation(folders[name].path, f);
-        addFileName(f, indent, txt)
-      }
-      folders[name].marked = true
-      folders[name].folders.forEach(function (f, index) {
-        const path = name + '/' + f;
-        addFolderName(path, 2)
-        if(index === folders[name].folders.length - 1){
-          done()
+      if (folders[name] !== undefined) {
+        if (folders[name].marked) {
+          return
         }
-      })
-    }
+        const indent = (folders[name].depth - startDepth) * 4;
+        markdownText += ''.padEnd(indent, ' ');
+        if (index === 1) {
+          markdownText += '|-- ' + startFolder + '\n'
+        } else {
+          markdownText += '|-- ' + folders[name].name + ' \n'
+        }
+        folders[name].files = folders[name].files.filter(item => !folderIgnoreList.some( x => x === path.extname(item)));
+        for(let i = 0; i < folders[name].files.length; i++) {
+          const f = folders[name].files[i];
+          const txt = await getAnnotation(folders[name].path, f);
+          addFileName(f, indent, txt)
+        }
+        folders[name].marked = true
+        for (let i=0; i < folders[name].folders.length; i++){
+          const f =  folders[name].folders[i];
+          const path = name + '/' + f;
+          addFolderName(path, 2);
+        }
+        done()
+      }
 
     } catch (error) {
-      console.error(error)
+      throw error;
     }
 }
 const getAnnotation = (paths, item) => {
 
   return new Promise(resolve =>{
-    const stream = fs.createReadStream(path.join(paths, item),
-                    { start: 0, end: 100, encoding: "utf-8"});
-     stream.on('data',function(data){
-      let txt = data.match(/^\/\/(.*)/ig) || data.match(/(?<=\/\*)[\s\S]*(?=\*\/)/ig);
+    // const stream = fs.createReadStream(path.join(paths, item),
+    //                 { start: 0, end: 50, encoding: "utf-8"});
 
+    // const rl = readline.createInterface({  input: stream });
+    // rl.on('line', (data) => {
+    //   let txt =  data.match(/(?<=\/\*)[\s\S]*(?=\*\/)/ig) || data.match(/^\/\/(.*)/ig);
+    //   if (txt) {
+    //     resolve(txt[0].replace(/[\/\r\n ]/g, ""));
+    //   } else {
+    //     resolve('');
+    //   }
+    //   rl.close();
+    //   stream.close();
+    //   stream.read(0);
+
+    // })
+    const wrap = fs.readFile(path.join(paths, item), 'utf-8', (err, data) => {
+      if (err) console.error(err);
+      data = data.slice(0, 50);
+      let txt =  data.match(/(?<=\/\*)[\s\S]*(?=\*\/)/ig) || data.match(/^\/\/(.*)/ig);
       if (txt) {
-        resolve(txt[0].replace(/[\/\r\n ]/g, ""))
+        resolve(txt[0].replace(/[\/\r\n ]/g, ""));
       } else {
         resolve('');
       }
-    });
+    })
   })
 }
 const generateMarkdown = function () {
-  addFolderName(key, 1)
+
+  addFolderName(key, 1);
 }
 
 String.prototype.replaceAt = function (index, character) {
